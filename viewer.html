@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>LAN Chat Viewer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            color: #e0e0e0;
+            background: #0d1a26;
+        }
+
+        #chat-window {
+            flex-grow: 1;
+            padding: 12px 16px;
+            overflow-y: auto;
+        }
+
+        .message-container {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .my-message {
+            justify-content: flex-end;
+        }
+
+        .other-message {
+            justify-content: flex-start;
+        }
+
+        .message-bubble {
+            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: 18px;
+            background: linear-gradient(to right, #005691, #003050);
+            color: white;
+        }
+
+        .pc {
+            background: linear-gradient(to right, #4facfe, #00f2fe);
+            color: #000;
+        }
+
+        .timestamp {
+            display: block;
+            margin-top: 4px;
+            font-size: 0.7em;
+            opacity: 0.7;
+            text-align: right;
+        }
+
+        .status {
+            text-align: center;
+            color: #ccc;
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="status">Loading chat history…</div>
+    <div id="chat-window"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+        // ---- Your Firebase Config (Already Filled) ----
+        const firebaseConfig = {
+            apiKey: "AIzaSyBIUJAvCsMYeG38Sd2fRBR9ABT8X8NpQrY",
+            authDomain: "lan-chat-f7896.firebaseapp.com",
+            databaseURL: "https://lan-chat-f7896-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "lan-chat-f7896",
+            storageBucket: "lan-chat-f7896.firebasestorage.app",
+            messagingSenderId: "662426073276",
+            appId: "1:662426073276:web:7c4dc65b2ef346a05278b9"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const chatWindow = document.getElementById("chat-window");
+
+        function renderMessage(msg) {
+            const div = document.createElement("div");
+
+            // LEFT = PC | RIGHT = Mob
+            if (msg.source === "PC") {
+                div.className = "message-container other-message";
+            } else {
+                div.className = "message-container my-message";
+            }
+
+            const bubble = document.createElement("div");
+            bubble.className = "message-bubble";
+
+            if (msg.source === "PC") bubble.classList.add("pc");
+
+            bubble.innerHTML = `
+        ${msg.message}
+        <div class="timestamp">${msg.time}</div>
+    `;
+
+            div.appendChild(bubble);
+            chatWindow.appendChild(div);
+        }
+
+        async function loadHistory() {
+            const status = document.querySelector(".status");
+            try {
+                const snapshot = await get(ref(db, "/chat_logs"));
+                if (!snapshot.exists()) {
+                    status.textContent = "No chat history found.";
+                    return;
+                }
+
+                status.style.display = "none";
+
+                let allLogs = [];
+
+                snapshot.forEach(child => {
+                    const block = child.val().data;
+                    if (Array.isArray(block)) allLogs.push(...block);
+                });
+
+                // Sort by date + time
+                allLogs.sort((a, b) => {
+                    const da = `${a.date} ${a.time}`;
+                    const db = `${b.date} ${b.time}`;
+                    return new Date(da) - new Date(db);
+                });
+
+                allLogs.forEach(renderMessage);
+
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+            } catch (err) {
+                status.textContent = "Error loading history.";
+                console.error(err);
+            }
+        }
+
+        loadHistory();
+    </script>
+
+</body>
+
+</html>
