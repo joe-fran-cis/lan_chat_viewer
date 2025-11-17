@@ -2,71 +2,82 @@
 <html>
 
 <head>
-    <title>LAN Chat Launcher</title>
+    <meta charset="utf-8">
+    <title>LAN Chat</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <style>
         body {
-            background: #0d1a26;
-            color: #fff;
-            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #0b1620;
+            font-family: Segoe UI, Arial, sans-serif;
+            color: #e8f4ff;
             text-align: center;
-            padding-top: 80px;
         }
 
-        button {
-            padding: 14px 22px;
-            font-size: 18px;
-            border: none;
-            border-radius: 8px;
-            background: #4fc3f7;
-            color: #000;
-            margin-top: 20px;
-            cursor: pointer;
+        h1 {
+            margin-top: 40px;
+            font-size: 28px;
+            color: #7fd8ff;
         }
 
         #status {
-            margin-top: 20px;
+            margin-top: 10px;
+            color: #a8c5d6;
+            font-size: 16px;
+        }
+
+        button {
+            margin-top: 25px;
+            padding: 12px 20px;
             font-size: 18px;
+            background: #29a7ff;
+            border: none;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1a8bd6;
         }
     </style>
 </head>
 
 <body>
 
-    <h2>LAN Chat</h2>
-    <p>Checking if local chat server is online…</p>
-    <div id="status">Please wait…</div>
+    <h1>LAN Chat</h1>
+    <div id="status">Checking if local chat server is online…</div>
+
+    <button id="openLive">Open Live Chat</button>
+    <br><br>
+    <button onclick="window.location.href='viewer.html'">Open Chat History (Viewer)</button>
 
     <script>
-
         const LOCAL_URL = "http://192.168.1.103:9090/";
 
         async function checkServer() {
-            const status = document.getElementById("status");
             try {
                 const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 1500);
+                setTimeout(() => controller.abort(), 1500);
 
                 const res = await fetch(LOCAL_URL, { signal: controller.signal });
-                clearTimeout(timeout);
-                console.log("res.ok " + res.ok)
-                console.log("res.status " + res.status)
-
-                if (res.ok || res.status === 200) {
-                    status.textContent = "Server is online! Opening chat…";
-                    window.location.href = LOCAL_URL;
-                } else {
-                    throw new Error("Not OK");
+                if (res.ok) {
+                    document.getElementById("status").innerText = "Server is ONLINE.";
+                    return true;
                 }
             } catch (e) {
-                status.innerHTML = `
-            Server is OFFLINE.<br><br>
-            <a href="viewer.html"><button>Open Chat History (Viewer)</button></a>
-        `;
+                document.getElementById("status").innerText = "Server is OFFLINE.";
+                return false;
             }
         }
 
         checkServer();
+
+        document.getElementById("openLive").onclick = function () {
+            window.location.href = LOCAL_URL;  // AppsGeyser will open inside app
+        };
     </script>
 
 </body>
