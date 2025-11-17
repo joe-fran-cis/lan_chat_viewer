@@ -5,57 +5,67 @@
     <meta charset="utf-8">
     <title>LAN Chat</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background: #0b1620;
-            font-family: Segoe UI, Arial, sans-serif;
-            color: #e8f4ff;
-            text-align: center;
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-dark': '#0b1620',
+                        'accent-blue': '#29a7ff',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Segoe UI', 'Arial', 'sans-serif'],
+                    }
+                }
+            }
         }
-
-        h1 {
-            margin-top: 40px;
-            font-size: 28px;
-            color: #7fd8ff;
-        }
-
-        #status {
-            margin-top: 10px;
-            color: #a8c5d6;
-            font-size: 16px;
-        }
-
-        button {
-            margin-top: 25px;
-            padding: 12px 20px;
-            font-size: 18px;
-            background: #29a7ff;
-            border: none;
-            color: white;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background: #1a8bd6;
-        }
-    </style>
+    </script>
 </head>
 
-<body>
+<!-- Improved UI: Dark background, centered content, elegant typography -->
 
-    <h1>LAN Chat</h1>
-    <!-- <div id="status"></div> -->
+<body class="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center font-sans p-4">
 
-    <button id="openLive">Open Live Chat</button>
-    <br><br>
-    <button onclick="window.location.href='viewer.html'">Open Chat History (Viewer)</button>
+    <!-- Main Content Container for structure and centering -->
+    <div class="w-full max-w-xl text-center">
+        <!-- Header with elevated styling -->
+        <h1 class="text-5xl font-extrabold text-blue-400 mb-6 tracking-tight">
+            LAN Chat Hub
+        </h1>
+
+        <!-- Status area (kept commented out, but ready if needed) -->
+        <div id="status" class="text-lg text-gray-400 mb-10 hidden"></div>
+
+        <!-- Button Container: Uses flex to place buttons side-by-side (sm:flex-row) 
+             and stacks them vertically on very small screens (flex-col) -->
+        <div class="flex flex-col sm:flex-row gap-4 w-full mt-10">
+
+            <!-- Elegant Live Chat Button -->
+            <button id="openLive" class="w-full sm:w-1/2 px-6 py-4 text-xl font-bold rounded-xl 
+                       bg-green-600 text-white shadow-lg shadow-green-800/50 
+                       transition duration-300 transform hover:scale-[1.02] hover:bg-green-700 
+                       focus:outline-none focus:ring-4 focus:ring-green-500">
+                Open Live Chat
+            </button>
+
+            <!-- Elegant History Viewer Button -->
+            <button onclick="window.location.href='viewer.html'" class="w-full sm:w-1/2 px-6 py-4 text-xl font-bold rounded-xl 
+                       bg-red-700 text-red-200 shadow-lg shadow-red-800/50 
+                       transition duration-300 transform hover:scale-[1.02] hover:bg-red-600 
+                       focus:outline-none focus:ring-4 focus:ring-red-500">
+                Open Chat History
+            </button>
+
+        </div>
+    </div>
 
     <script>
         const LOCAL_URL = "http://192.168.1.103:9090/";
+
+        // The commented-out checkServer function remains untouched, just removed the 
+        // <br><br> tags and inline style/script references.
 
         // async function checkServer() {
         //     try {
@@ -76,7 +86,7 @@
         // checkServer();
 
         document.getElementById("openLive").onclick = function () {
-            window.location.href = LOCAL_URL;  // AppsGeyser will open inside app
+            window.location.href = LOCAL_URL; // AppsGeyser will open inside app
         };
     </script>
 

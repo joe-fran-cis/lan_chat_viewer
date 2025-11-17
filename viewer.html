@@ -266,6 +266,7 @@
 
             chatWindow.innerHTML = "";
 
+            // Fetch the last chat log entry
             const snap = await db.ref("/chat_logs").limitToLast(1).once("value");
 
             if (!snap.exists()) {
@@ -276,6 +277,7 @@
             let last = null;
             snap.forEach(c => last = c.val());
 
+            // Extract the message data and convert to an array
             const block = last.data ?? last;
             const arr = normalizeToArray(block);
 
@@ -284,6 +286,7 @@
                 return;
             }
 
+            // Sort messages chronologically
             arr.sort((a, b) => {
                 const da = new Date(`${a.date} ${a.time}`);
                 const db = new Date(`${b.date} ${b.time}`);
@@ -292,7 +295,9 @@
 
             let prevDate = "";
 
+            // Render all messages
             arr.forEach(msg => {
+                // Insert date separator if the date has changed
                 if (msg.date !== prevDate) {
                     renderDateSeparator(msg.date);
                     prevDate = msg.date;
@@ -300,10 +305,28 @@
                 renderMessage(msg);
             });
 
+            // Scroll to the bottom of the chat
             chatWindow.scrollTop = chatWindow.scrollHeight;
 
+            // --- START: 24h Readable Date Update ---
+            const uploadedAt = last.uploadedAt || new Date().toISOString();
+            const dateObj = new Date(uploadedAt);
+
+            // Format the date object into a readable local string using 24-hour time
+            const readableTime = dateObj.toLocaleTimeString("en-IN", {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                // Key change: Force 24-hour format
+                hour12: false
+            });
+
             lastSyncEl.textContent =
-                "Last sync: " + (last.uploadedAt || new Date().toISOString());
+                "Last sync: " + readableTime;
+            // --- END: 24h Readable Date Update ---
 
             //setStatus(`Loaded ${arr.length} messages.`);
         }
