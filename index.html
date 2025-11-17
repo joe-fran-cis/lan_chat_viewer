@@ -38,7 +38,7 @@
     <div id="status">Please wait…</div>
 
     <script>
-        alert("yes");
+
         const LOCAL_URL = "http://192.168.1.103:9090/";
 
         async function checkServer() {
@@ -49,6 +49,8 @@
 
                 const res = await fetch(LOCAL_URL, { signal: controller.signal });
                 clearTimeout(timeout);
+                console.log("res.ok " + res.ok)
+                console.log("res.status " + res.status)
 
                 if (res.ok || res.status === 200) {
                     status.textContent = "Server is online! Opening chat…";
