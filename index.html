@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>LAN Chat Launcher</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            background: #0d1a26;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding-top: 80px;
+        }
+
+        button {
+            padding: 14px 22px;
+            font-size: 18px;
+            border: none;
+            border-radius: 8px;
+            background: #4fc3f7;
+            color: #000;
+            margin-top: 20px;
+            cursor: pointer;
+        }
+
+        #status {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>LAN Chat</h2>
+    <p>Checking if local chat server is online…</p>
+    <div id="status">Please wait…</div>
+
+    <script>
+        const LOCAL_URL = "http://192.168.1.103:9090/";
+
+        async function checkServer() {
+            const status = document.getElementById("status");
+            try {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 1500);
+
+                const res = await fetch(LOCAL_URL, { signal: controller.signal });
+                clearTimeout(timeout);
+
+                if (res.ok || res.status === 200) {
+                    status.textContent = "Server is online! Opening chat…";
+                    window.location.href = LOCAL_URL;
+                } else {
+                    throw new Error("Not OK");
+                }
+            } catch (e) {
+                status.innerHTML = `
+            Server is OFFLINE.<br><br>
+            <a href="viewer.html"><button>Open Chat History (Viewer)</button></a>
+        `;
+            }
+        }
+
+        checkServer();
+    </script>
+
+</body>
+
+</html>
