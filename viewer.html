@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>LAN Chat — Viewer (History Only)</title>
+    <title>LAN Chat — Viewer (Full History)</title>
 
     <style>
         body {
@@ -45,24 +45,11 @@
 
         .my-message {
             justify-content: flex-end;
-            /* Mob → right */
         }
 
         .other-message {
             justify-content: flex-start;
-            /* PC → left */
         }
-
-        /*.bubble {
-            max-width: 30%;
-            padding: 10px 14px;
-            border-radius: 16px;
-            background: linear-gradient(to right, #003050, #005691);
-            color: #fff;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            white-space: pre-wrap;
-        }*/
 
         .bubble {
             max-width: 50%;
@@ -78,7 +65,8 @@
             color: white;
         }
 
-        .pc {
+        .other-message .bubble {
+            /* PC/Other Message (Darker blue gradient) */
             background: linear-gradient(to right, #4facfe, #00f2fe);
             color: #000;
             word-wrap: break-word;
@@ -89,9 +77,7 @@
         /* Style for links inside the bubble */
         .bubble a {
             color: inherit;
-            /* Inherit the bubble text color */
             text-decoration: underline;
-            /* Make links stand out */
         }
 
         .ts {
@@ -131,11 +117,25 @@
             background: #1976d2;
             color: #fff;
             cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #1565c0;
+        }
+
+        @media (max-width: 600px) {
+            .bubble {
+                max-width: 90%;
+            }
         }
     </style>
 </head>
 
 <body>
+    <!-- Hidden status element, as its logging is commented out -->
+    <div id="status" style="display:none;"></div>
+
     <div id="chat-window"></div>
 
     <div id="controls">
@@ -162,46 +162,46 @@
         const lastSyncEl = document.getElementById("last-sync");
         const refreshBtn = document.getElementById("refresh");
 
-        function setStatus(text, err = false) {
-            statusEl.textContent = text;
-            statusEl.style.color = err ? "#ffd2d2" : "#bcd";
-        }
-
         function escapeHtml(t) {
             return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
 
-        // NEW FUNCTION: Converts text containing URLs into HTML with clickable links
+        // Converts text containing URLs into HTML with clickable links
         function linkify(text) {
-            // Regex to find URLs (http/https/ftp/www. or common TLDs)
             const urlRegex = /(\b(https?|ftp):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])|(\bwww\.[\S]+(\b|$))|(\b[\w]+(\.[\w]{2,}){1,3}\b)/gim;
 
-            // Step 1: Escape the original text to prevent XSS issues with non-URL content
             const escapedText = escapeHtml(text);
 
-            // Step 2: Use a safer replacement approach on the escaped text
             const linkedText = escapedText.replace(urlRegex, (url) => {
                 let href = url;
-                // Add http:// if it's a www. or a bare domain but not already prefixed
                 if (!url.match(/^(https?|ftp):\/\//i) && url.indexOf('.') > -1) {
                     href = 'http://' + url;
                 }
-                // Use a simple, reliable URL validation check if needed, but for display, simple prefixing often suffices.
                 return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
             });
 
             return linkedText;
         }
 
+        /**
+         * Converts a Firebase object map (which might contain message objects and a metadata string)
+         * into a clean array of message objects, filtering out non-object values like 'uploadedAt'.
+         * This function is primarily for the old data structure (multi-message per node).
+         */
         function normalizeToArray(obj) {
-            if (!obj) return [];
-            if (Array.isArray(obj)) return obj;
+            if (!obj || typeof obj !== 'object') return [];
 
-            const keys = Object.keys(obj);
-            const numeric = keys.every(k => /^\d+$/.test(k));
-            if (numeric) return keys.sort((a, b) => a - b).map(k => obj[k]);
+            // 1. Get all values from the object 
+            const values = Object.values(obj);
 
-            return keys.map(k => obj[k]);
+            // 2. Filter: Only keep items that are objects AND have a 'message' or 'msg' field.
+            return values.filter(item => {
+                // Check if item is a non-null object
+                const isObject = typeof item === 'object' && item !== null;
+                // Check if it has the required message fields
+                const isMessage = isObject && (item.message || item.msg);
+                return isMessage;
+            });
         }
 
         function formatDateForDisplay(dateStr) {
@@ -238,17 +238,18 @@
         }
 
         function renderMessage(msg) {
+            // Note: Messages from Mob are typically the mobile sender, so we treat them as 'my-message' for color distinction.
+            const isMyMessage = msg.source === "Mob";
             const container = document.createElement("div");
             container.className =
-                "message-container " + (msg.source === "Mob" ? "my-message" : "other-message");
+                "message-container " + (isMyMessage ? "my-message" : "other-message");
 
             const bubble = document.createElement("div");
-            bubble.className = "bubble" + (msg.source === "PC" ? " pc" : "");
+            bubble.className = "bubble";
 
             const text = msg.message ?? msg.msg ?? "";
             const time = msg.time ?? "";
 
-            // MODIFICATION: Use linkify() instead of escapeHtml() for the message text
             const linkedText = linkify(text);
 
             bubble.innerHTML =
@@ -262,32 +263,59 @@
         const db = firebase.database();
 
         async function loadLatest() {
-            // setStatus("Loading...");
-
+            console.log("Starting full history data load...");
             chatWindow.innerHTML = "";
+            let allMessages = [];
+            let latestUploadedAt = new Date(0).toISOString(); // Initialize with a very old date
 
-            // Fetch the last chat log entry
-            const snap = await db.ref("/chat_logs").limitToLast(1).once("value");
+            // --- Querying ALL log entries ---
+            const snap = await db.ref("/chat_logs").once("value");
 
             if (!snap.exists()) {
-                //setStatus("No chat history found.", true);
+                lastSyncEl.textContent = "Last sync: No chat logs found";
                 return;
             }
 
-            let last = null;
-            snap.forEach(c => last = c.val());
+            // Iterate through every single log node
+            snap.forEach(childSnapshot => {
+                const nodeData = childSnapshot.val();
 
-            // Extract the message data and convert to an array
-            const block = last.data ?? last;
-            const arr = normalizeToArray(block);
+                // Keep track of the latest upload time across all nodes
+                if (nodeData.uploadedAt) {
+                    if (nodeData.uploadedAt > latestUploadedAt) {
+                        latestUploadedAt = nodeData.uploadedAt;
+                    }
+                }
 
-            if (arr.length === 0) {
-                //setStatus("History empty.", true);
+                // Step 1: Unwrap 'data' if present (for backward compatibility)
+                const messageBlock = nodeData.data ?? nodeData;
+
+                let messagesFromNode = [];
+
+                // Step 2: Check if the block is a single message object (new format)
+                if (messageBlock && (messageBlock.message || messageBlock.msg)) {
+                    // It's a single message object, so we wrap it in an array.
+                    messagesFromNode = [messageBlock];
+                } else {
+                    // The data is a map of messages (old format), use normalizeToArray.
+                    messagesFromNode = normalizeToArray(messageBlock);
+                }
+
+                // Add the messages from this node to the master list
+                allMessages = allMessages.concat(messagesFromNode);
+            });
+
+            console.log(`Total messages found across all logs: ${allMessages.length}`);
+
+            if (allMessages.length === 0) {
+                lastSyncEl.textContent = "Last sync: Log entries found, but no messages were successfully parsed.";
                 return;
             }
 
-            // Sort messages chronologically
-            arr.sort((a, b) => {
+            // --- Rendering Logic ---
+
+            // Sort ALL messages chronologically based on internal date/time fields
+            allMessages.sort((a, b) => {
                 const da = new Date(`${a.date} ${a.time}`);
                 const db = new Date(`${b.date} ${b.time}`);
                 return da - db;
@@ -296,23 +324,21 @@
             let prevDate = "";
 
             // Render all messages
-            arr.forEach(msg => {
-                // Insert date separator if the date has changed
-                if (msg.date !== prevDate) {
+            allMessages.forEach(msg => {
+                // Ensure date exists and handle date separators
+                if (msg.date && msg.date !== prevDate) {
                     renderDateSeparator(msg.date);
                     prevDate = msg.date;
                 }
                 renderMessage(msg);
             });
 
-            // Scroll to the bottom of the chat
+            // Scroll to the latest message
             chatWindow.scrollTop = chatWindow.scrollHeight;
 
-            // --- START: 24h Readable Date Update ---
-            const uploadedAt = last.uploadedAt || new Date().toISOString();
-            const dateObj = new Date(uploadedAt);
+            // Update sync timestamp using the 'uploadedAt' field from the latest node
+            const dateObj = new Date(latestUploadedAt);
 
-            // Format the date object into a readable local string using 24-hour time
             const readableTime = dateObj.toLocaleTimeString("en-IN", {
                 year: 'numeric',
                 month: 'short',
@@ -320,15 +346,11 @@
                 hour: '2-digit',
                 minute: '2-digit',
                 second: '2-digit',
-                // Key change: Force 24-hour format
                 hour12: false
             });
 
             lastSyncEl.textContent =
-                "Last sync: " + readableTime;
-            // --- END: 24h Readable Date Update ---
-
-            //setStatus(`Loaded ${arr.length} messages.`);
+                `Last sync: ${readableTime} (${allMessages.length} messages loaded)`;
         }
 
         refreshBtn.addEventListener("click", loadLatest);
