@@ -52,8 +52,7 @@
         }
 
         .bubble {
-            max-width: 80%;
-            min-width: 120px;
+            max-width: 50%;
             padding: 10px 14px;
             border-radius: 18px;
             word-wrap: break-word;
@@ -62,15 +61,17 @@
             position: relative;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
             text-align: left;
-            /* Default: Mob/My Message (Blue/Cyan gradient) */
-            background: linear-gradient(to right, #00f2fe, #4facfe);
-            color: #000;
+            background: linear-gradient(to right, #005691, #003050);
+            color: white;
         }
 
         .other-message .bubble {
             /* PC/Other Message (Darker blue gradient) */
-            background: linear-gradient(to right, #005691, #003050);
-            color: white;
+            background: linear-gradient(to right, #4facfe, #00f2fe);
+            color: #000;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
         }
 
         /* Style for links inside the bubble */
