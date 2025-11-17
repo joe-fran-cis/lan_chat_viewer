@@ -4,7 +4,8 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>LAN Chat — Viewer (Compat)</title>
+    <title>LAN Chat — Viewer (History Only)</title>
+
     <style>
         body {
             font-family: Segoe UI, Roboto, Arial, sans-serif;
@@ -13,7 +14,7 @@
             display: flex;
             flex-direction: column;
             background: #09121a;
-            color: #e6eef6
+            color: #e6eef6;
         }
 
         #header {
@@ -21,33 +22,35 @@
             background: #0f2630;
             color: #6fd6ff;
             text-align: center;
-            font-weight: 600
+            font-weight: 600;
         }
 
         #status {
             padding: 12px;
             text-align: center;
             color: #bcd;
-            min-height: 44px
+            min-height: 44px;
         }
 
         #chat-window {
             flex: 1;
             overflow: auto;
-            padding: 12px
+            padding: 12px;
         }
 
         .message-container {
             margin-bottom: 10px;
-            display: flex
+            display: flex;
         }
 
         .my-message {
-            justify-content: flex-end
+            justify-content: flex-end;
+            /* Mob → right */
         }
 
         .other-message {
-            justify-content: flex-start
+            justify-content: flex-start;
+            /* PC → left */
         }
 
         .bubble {
@@ -55,12 +58,12 @@
             padding: 10px 14px;
             border-radius: 16px;
             background: linear-gradient(to right, #003050, #005691);
-            color: #fff
+            color: #fff;
         }
 
         .pc {
             background: linear-gradient(to right, #4facfe, #00f2fe);
-            color: #000
+            color: #000;
         }
 
         .ts {
@@ -68,20 +71,19 @@
             margin-top: 6px;
             font-size: 0.75em;
             opacity: .8;
-            text-align: right
+            text-align: right;
         }
 
-        .error {
-            color: #ffd2d2;
-            background: #3a1a1a;
-            padding: 8px;
-            border-radius: 6px;
-            margin: 12px
-        }
-
-        .small {
-            font-size: 0.9em;
-            color: #9ab
+        /* WhatsApp DATE style */
+        .date-sep {
+            display: inline-block;
+            margin: 15px auto;
+            padding: 6px 14px;
+            background: #262d33;
+            color: #cfd3d7;
+            font-size: 0.78em;
+            border-radius: 12px;
+            text-align: center;
         }
 
         #controls {
@@ -91,7 +93,7 @@
             display: flex;
             gap: 8px;
             align-items: center;
-            justify-content: center
+            justify-content: center;
         }
 
         button {
@@ -100,7 +102,7 @@
             border: 0;
             background: #1976d2;
             color: #fff;
-            cursor: pointer
+            cursor: pointer;
         }
     </style>
 </head>
@@ -109,17 +111,17 @@
     <div id="header">LAN Chat — Viewer (History Only)</div>
     <div id="status">Initializing…</div>
     <div id="chat-window"></div>
+
     <div id="controls">
         <button id="refresh">Refresh</button>
-        <div class="small" id="last-sync">Last sync: —</div>
+        <div id="last-sync" style="font-size: 0.9em; color:#9ab;">Last sync: —</div>
     </div>
 
-    <!-- Firebase compat builds (no modules) -->
+    <!-- Firebase compat -->
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
     <script>
-        // --- CONFIG: unchanged from what you used earlier ---
         const firebaseConfig = {
             apiKey: "AIzaSyBIUJAvCsMYeG38Sd2fRBR9ABT8X8NpQrY",
             authDomain: "lan-chat-f7896.firebaseapp.com",
@@ -130,127 +132,136 @@
             appId: "1:662426073276:web:7c4dc65b2ef346a05278b9"
         };
 
-        const statusEl = document.getElementById('status');
-        const chatWindow = document.getElementById('chat-window');
-        const lastSyncEl = document.getElementById('last-sync');
-        const refreshBtn = document.getElementById('refresh');
+        const statusEl = document.getElementById("status");
+        const chatWindow = document.getElementById("chat-window");
+        const lastSyncEl = document.getElementById("last-sync");
+        const refreshBtn = document.getElementById("refresh");
 
-        function setStatus(text, isError = false) {
-            statusEl.innerHTML = text;
-            statusEl.style.color = isError ? '#ffd2d2' : '#bcd';
-            if (isError) statusEl.classList.add('error'); else statusEl.classList.remove('error');
-            console.log('[viewer] status:', text);
+        function setStatus(text, err = false) {
+            statusEl.textContent = text;
+            statusEl.style.color = err ? "#ffd2d2" : "#bcd";
         }
 
-        function logErr(err) {
-            console.error(err);
-            // show short message
-            setStatus('Error: ' + (err && err.message ? err.message : String(err)), true);
+        function escapeHtml(t) {
+            return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
 
-        try {
-            firebase.initializeApp(firebaseConfig);
-            const db = firebase.database();
+        function normalizeToArray(obj) {
+            if (!obj) return [];
+            if (Array.isArray(obj)) return obj;
 
-            setStatus('Connected to Firebase (init OK). Loading latest history…');
+            const keys = Object.keys(obj);
+            const numeric = keys.every(k => /^\d+$/.test(k));
+            if (numeric) return keys.sort((a, b) => a - b).map(k => obj[k]);
 
-            function normalizeToArray(obj) {
-                if (obj == null) return [];
-                if (Array.isArray(obj)) return obj;
-                if (typeof obj === 'object') {
-                    // if object looks like {0:{...},1:{...}} convert to sorted array
-                    const keys = Object.keys(obj);
-                    const maybeNumeric = keys.length && keys.every(k => /^\d+$/.test(k));
-                    if (maybeNumeric) {
-                        return keys.sort((a, b) => a - b).map(k => obj[k]);
-                    }
-                    // else return values in insertion order
-                    return keys.map(k => obj[k]);
-                }
-                return [obj];
-            }
-
-            function renderMessage(msg) {
-                try {
-                    const container = document.createElement('div');
-                    container.className = 'message-container ' + ((msg.source === 'Mob') ? 'my-message' : 'other-message');
-
-                    const bubble = document.createElement('div');
-                    bubble.className = 'bubble' + ((msg.source === 'PC') ? ' pc' : '');
-
-                    const text = (msg.message !== undefined) ? msg.message : (msg.msg || '');
-                    const time = msg.time || '';
-                    bubble.innerHTML = `${escapeHtml(String(text))}<span class="ts">${escapeHtml(time)}</span>`;
-
-                    container.appendChild(bubble);
-                    chatWindow.appendChild(container);
-                } catch (e) {
-                    console.error('renderMessage error', e, msg);
-                }
-            }
-
-            function escapeHtml(s) {
-                return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            }
-
-            async function loadLatest() {
-                try {
-                    setStatus('Loading latest record from /chat_logs …');
-                    chatWindow.innerHTML = '';
-                    lastSyncEl.textContent = 'Last sync: —';
-
-                    const snap = await db.ref('/chat_logs').limitToLast(1).once('value');
-                    if (!snap.exists()) {
-                        setStatus('No chat_logs found in database. Make sure entries exist or check rules.', true);
-                        return;
-                    }
-
-                    // get last child
-                    let last = null;
-                    snap.forEach(child => { last = child.val(); });
-
-                    if (!last) {
-                        setStatus('Latest record is empty.', true);
-                        return;
-                    }
-
-                    // last may have .data -> the messages block
-                    const block = (last.data !== undefined) ? last.data : last;
-                    const arr = normalizeToArray(block);
-
-                    if (arr.length === 0) {
-                        setStatus('Latest record contains no messages.', true);
-                        return;
-                    }
-
-                    // sort by date+time if fields exist
-                    arr.sort((a, b) => {
-                        const da = (a.date ? a.date : '') + ' ' + (a.time ? a.time : '');
-                        const db_ = (b.date ? b.date : '') + ' ' + (b.time ? b.time : '');
-                        return new Date(da) - new Date(db_);
-                    });
-
-                    // render
-                    arr.forEach(renderMessage);
-                    chatWindow.scrollTop = chatWindow.scrollHeight;
-
-                    setStatus('Loaded ' + arr.length + ' messages.');
-                    lastSyncEl.textContent = 'Last sync: ' + (last.uploadedAt ? last.uploadedAt : new Date().toISOString());
-                } catch (err) {
-                    // permission denied or network error
-                    logErr(err);
-                }
-            }
-
-            refreshBtn.addEventListener('click', loadLatest);
-            // initial load
-            loadLatest();
-
-        } catch (e) {
-            logErr(e);
+            return keys.map(k => obj[k]);
         }
 
+        function formatDateForDisplay(dateStr) {
+            const d = new Date(dateStr);
+            if (isNaN(d)) return dateStr;
+
+            const today = new Date();
+            const yest = new Date();
+            yest.setDate(today.getDate() - 1);
+
+            const sameDay = (a, b) => a.toDateString() === b.toDateString();
+
+            if (sameDay(d, today)) return "Today";
+            if (sameDay(d, yest)) return "Yesterday";
+
+            return d.toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric"
+            });
+        }
+
+        function renderDateSeparator(dateString) {
+            const wrap = document.createElement("div");
+            wrap.style.display = "flex";
+            wrap.style.justifyContent = "center";
+
+            const sep = document.createElement("div");
+            sep.className = "date-sep";
+            sep.textContent = formatDateForDisplay(dateString);
+
+            wrap.appendChild(sep);
+            chatWindow.appendChild(wrap);
+        }
+
+        function renderMessage(msg) {
+            const container = document.createElement("div");
+            container.className =
+                "message-container " + (msg.source === "Mob" ? "my-message" : "other-message");
+
+            const bubble = document.createElement("div");
+            bubble.className = "bubble" + (msg.source === "PC" ? " pc" : "");
+
+            const text = msg.message ?? msg.msg ?? "";
+            const time = msg.time ?? "";
+
+            bubble.innerHTML =
+                escapeHtml(text) + `<span class="ts">${escapeHtml(time)}</span>`;
+
+            container.appendChild(bubble);
+            chatWindow.appendChild(container);
+        }
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        async function loadLatest() {
+            setStatus("Loading...");
+
+            chatWindow.innerHTML = "";
+
+            const snap = await db.ref("/chat_logs").limitToLast(1).once("value");
+
+            if (!snap.exists()) {
+                setStatus("No chat history found.", true);
+                return;
+            }
+
+            let last = null;
+            snap.forEach(c => last = c.val());
+
+            const block = last.data ?? last;
+            const arr = normalizeToArray(block);
+
+            if (arr.length === 0) {
+                setStatus("History empty.", true);
+                return;
+            }
+
+            arr.sort((a, b) => {
+                const da = new Date(`${a.date} ${a.time}`);
+                const db = new Date(`${b.date} ${b.time}`);
+                return da - db;
+            });
+
+            let prevDate = "";
+
+            arr.forEach(msg => {
+                if (msg.date !== prevDate) {
+                    renderDateSeparator(msg.date);
+                    prevDate = msg.date;
+                }
+                renderMessage(msg);
+            });
+
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+
+            lastSyncEl.textContent =
+                "Last sync: " + (last.uploadedAt || new Date().toISOString());
+
+            setStatus(`Loaded ${arr.length} messages.`);
+        }
+
+        refreshBtn.addEventListener("click", loadLatest);
+        loadLatest();
     </script>
+
 </body>
 
 </html>
