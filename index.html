@@ -57,23 +57,23 @@
     <script>
         const LOCAL_URL = "http://192.168.1.103:9090/";
 
-        async function checkServer() {
-            try {
-                const controller = new AbortController();
-                setTimeout(() => controller.abort(), 1500);
+        // async function checkServer() {
+        //     try {
+        //         const controller = new AbortController();
+        //         setTimeout(() => controller.abort(), 1500);
 
-                const res = await fetch(LOCAL_URL, { signal: controller.signal });
-                if (res.ok) {
-                    //document.getElementById("status").innerText = "Server is ONLINE.";
-                    return true;
-                }
-            } catch (e) {
-                //document.getElementById("status").innerText = "Server is OFFLINE.";
-                return false;
-            }
-        }
+        //         const res = await fetch(LOCAL_URL, { signal: controller.signal });
+        //         if (res.ok) {
+        //             //document.getElementById("status").innerText = "Server is ONLINE.";
+        //             return true;
+        //         }
+        //     } catch (e) {
+        //         //document.getElementById("status").innerText = "Server is OFFLINE.";
+        //         return false;
+        //     }
+        // }
 
-        checkServer();
+        // checkServer();
 
         document.getElementById("openLive").onclick = function () {
             window.location.href = LOCAL_URL;  // AppsGeyser will open inside app
