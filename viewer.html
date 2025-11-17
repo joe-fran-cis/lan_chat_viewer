@@ -52,14 +52,17 @@
         }
 
         .bubble {
-            /* Compactness change: Reduced max-width from 80% to 70% */
+            /* Compactness: Reduced max-width for desktop view */
             max-width: 30%;
             padding: 10px 14px;
             border-radius: 18px;
 
-            /* Enhanced word wrap for long URLs/text */
+            /* --- Wrapping Fix --- */
+            /* Ensure words break aggressively for long URLs/strings */
             word-wrap: break-word;
             overflow-wrap: break-word;
+            /* This is the key fix to break long strings at any character if needed */
+            word-break: break-all;
 
             font-size: 0.95em;
             line-height: 1.4;
@@ -72,7 +75,6 @@
         }
 
         .other-message .bubble {
-            max-width: 30%;
             /* PC/Other Message (Darker blue gradient) */
             background: linear-gradient(to right, #005691, #003050);
             color: white;
@@ -130,7 +132,7 @@
 
         @media (max-width: 600px) {
             .bubble {
-                /* Compactness change: Reduced max-width from 90% to 85% for mobile */
+                /* Compactness: Reduced max-width for mobile view */
                 max-width: 85%;
             }
         }
