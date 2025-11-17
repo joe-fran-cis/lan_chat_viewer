@@ -64,11 +64,11 @@
 
                 const res = await fetch(LOCAL_URL, { signal: controller.signal });
                 if (res.ok) {
-                    document.getElementById("status").innerText = "Server is ONLINE.";
+                    //document.getElementById("status").innerText = "Server is ONLINE.";
                     return true;
                 }
             } catch (e) {
-                document.getElementById("status").innerText = "Server is OFFLINE.";
+                //document.getElementById("status").innerText = "Server is OFFLINE.";
                 return false;
             }
         }
