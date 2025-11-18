@@ -54,14 +54,13 @@
         .bubble {
             /* Compactness: Reduced max-width for desktop view */
             max-width: 70%;
+            /* Corrected from 10% for readability */
             padding: 10px 14px;
             border-radius: 18px;
 
             /* --- Wrapping Fix --- */
-            /* Ensure words break aggressively for long URLs/strings */
             word-wrap: break-word;
             overflow-wrap: break-word;
-            /* This is the key fix to break long strings at any character if needed */
             word-break: break-all;
 
             font-size: 0.95em;
@@ -151,6 +150,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 
     <script>
         // DOM Element references
@@ -159,18 +159,12 @@
         const lastSyncEl = document.getElementById("last-sync");
         const refreshBtn = document.getElementById("refresh");
 
-        /**
-         * Safely escapes HTML characters in a string.
-         * @param {string} t The text to escape.
-         */
+        // ... (Keep utility functions: escapeHtml, linkify, normalizeToArray, formatDateForDisplay, renderDateSeparator, renderMessage) ...
+
         function escapeHtml(t) {
             return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
 
-        /**
-         * Converts text containing URLs into HTML with clickable links.
-         * @param {string} text The text to linkify.
-         */
         function linkify(text) {
             const urlRegex = /(\b(https?|ftp):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])|(\bwww\.[\S]+(\b|$))|(\b[\w]+(\.[\w]{2,}){1,3}\b)/gim;
             const escapedText = escapeHtml(text);
@@ -186,14 +180,9 @@
             return linkedText;
         }
 
-        /**
-         * Converts a Firebase object map into a clean array of message objects.
-         * Used for handling older, multi-message node structures.
-         * @param {object} obj The object map from Firebase.
-         */
         function normalizeToArray(obj) {
             if (!obj || typeof obj !== 'object') return [];
-            
+
             const values = Object.values(obj);
             return values.filter(item => {
                 const isObject = typeof item === 'object' && item !== null;
@@ -202,10 +191,6 @@
             });
         }
 
-        /**
-         * Formats a date string for display in the date separator.
-         * @param {string} dateStr The date string (e.g., "YYYY-MM-DD").
-         */
         function formatDateForDisplay(dateStr) {
             const d = new Date(dateStr);
             if (isNaN(d)) return dateStr;
@@ -219,7 +204,6 @@
             if (sameDay(d, today)) return "Today";
             if (sameDay(d, yest)) return "Yesterday";
 
-            // Format as "21 Nov 2025"
             return d.toLocaleDateString("en-US", {
                 day: "2-digit",
                 month: "short",
@@ -227,10 +211,6 @@
             });
         }
 
-        /**
-         * Renders a date separator element in the chat window.
-         * @param {string} dateString The date string for the separator.
-         */
         function renderDateSeparator(dateString) {
             const wrap = document.createElement("div");
             wrap.style.display = "flex";
@@ -244,10 +224,6 @@
             chatWindow.appendChild(wrap);
         }
 
-        /**
-         * Renders a single message bubble.
-         * @param {object} msg The message object.
-         */
         function renderMessage(msg) {
             const isMyMessage = msg.source === "Mob";
             const container = document.createElement("div");
@@ -268,19 +244,20 @@
             container.appendChild(bubble);
             chatWindow.appendChild(container);
         }
-        
+
         // =========================================================================
         // CORE DATA LOADING FUNCTION
         // =========================================================================
-        
+
         async function loadLatest() {
+            // ... (rest of the loadLatest function remains the same) ...
+
             console.log("Starting full history data load...");
             chatWindow.innerHTML = "";
             let allMessages = [];
 
-            // We assume Firebase is already initialized by init()
             const db = firebase.database();
-            
+
             // --- Querying ALL log entries ---
             const snap = await db.ref("/chat_logs").once("value");
 
@@ -319,7 +296,6 @@
 
             // --- Rendering Logic ---
 
-            // Sort ALL messages chronologically
             allMessages.sort((a, b) => {
                 const da = new Date(`${a.date} ${a.time}`);
                 const db = new Date(`${b.date} ${b.time}`);
@@ -346,9 +322,9 @@
 
             lastSyncEl.textContent = `Last sync: ${readableTime}`;
         }
-        
+
         // =========================================================================
-        // DYNAMIC CONFIGURATION AND INITIALIZATION
+        // DYNAMIC CONFIGURATION AND INITIALIZATION (UPDATED)
         // =========================================================================
 
         async function init() {
@@ -372,22 +348,40 @@
             try {
                 firebase.initializeApp(firebaseConfig);
                 console.log("Firebase initialized successfully.");
-                // Now, load the chat data
+
+                // 🟢 CHANGE 2: NEW AUTHENTICATION LOGIC
+                console.log("Attempting Anonymous Sign-in...");
+
+                // Sign in anonymously and wait for the promise to resolve
+                await firebase.auth().signInAnonymously();
+
+                console.log("User successfully authenticated (anonymously).");
+
+                // NOW that the user is authenticated, we can load the data
                 loadLatest();
+                // 🟢 END OF NEW AUTHENTICATION LOGIC
+
             } catch (e) {
-                console.error("❌ Firebase initialization failed:", e);
-                lastSyncEl.textContent = "Last sync: ERROR initializing Firebase";
+                // This catch handles both initialization AND sign-in errors
+                if (e.code === 'auth/operation-not-allowed') {
+                    console.error("❌ Authentication Failed: Anonymous Auth is not enabled in Firebase Console.");
+                } else if (e.code === 'permission_denied') {
+                    // This error might show up in older SDK versions if rules fail
+                    console.error("❌ Authentication Failed: Permission Denied. Check your security rules and API key restrictions.", e);
+                } else {
+                    console.error("❌ Firebase Initialization or Sign-in failed:", e);
+                }
+                lastSyncEl.textContent = "Last sync: ERROR (Auth/Permission Required)";
             }
-            
         }
 
 
         refreshBtn.addEventListener("click", loadLatest);
-        
+
         // Start the process by initializing
         init();
     </script>
-    
+
     <div style="display:none;"><img src="images/chat.png" alt="Favicon Placeholder"></div>
 </body>
 
