@@ -53,7 +53,7 @@
 
         .bubble {
             /* Compactness: Reduced max-width for desktop view */
-            max-width: 10%;
+            max-width: 70%;
             padding: 10px 14px;
             border-radius: 18px;
 
@@ -140,7 +140,6 @@
 </head>
 
 <body>
-    <!-- Hidden status element, as its logging is commented out -->
     <div id="status" style="display:none;"></div>
 
     <div id="chat-window"></div>
@@ -154,29 +153,26 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
     <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyBIUJAvCsMYeG38Sd2fRBR9ABT8X8NpQrY",
-            authDomain: "lan-chat-f7896.firebaseapp.com",
-            databaseURL: "https://lan-chat-f7896-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "lan-chat-f7896",
-            storageBucket: "lan-chat-f7896.firebasestorage.app",
-            messagingSenderId: "662426073276",
-            appId: "1:662426073276:web:7c4dc65b2ef346a05278b9"
-        };
-
+        // DOM Element references
         const statusEl = document.getElementById("status");
         const chatWindow = document.getElementById("chat-window");
         const lastSyncEl = document.getElementById("last-sync");
         const refreshBtn = document.getElementById("refresh");
 
+        /**
+         * Safely escapes HTML characters in a string.
+         * @param {string} t The text to escape.
+         */
         function escapeHtml(t) {
             return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
 
-        // Converts text containing URLs into HTML with clickable links
+        /**
+         * Converts text containing URLs into HTML with clickable links.
+         * @param {string} text The text to linkify.
+         */
         function linkify(text) {
             const urlRegex = /(\b(https?|ftp):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])|(\bwww\.[\S]+(\b|$))|(\b[\w]+(\.[\w]{2,}){1,3}\b)/gim;
-
             const escapedText = escapeHtml(text);
 
             const linkedText = escapedText.replace(urlRegex, (url) => {
@@ -191,26 +187,25 @@
         }
 
         /**
-         * Converts a Firebase object map (which might contain message objects and a metadata string)
-         * into a clean array of message objects, filtering out non-object values like 'uploadedAt'.
-         * This function is primarily for the old data structure (multi-message per node).
+         * Converts a Firebase object map into a clean array of message objects.
+         * Used for handling older, multi-message node structures.
+         * @param {object} obj The object map from Firebase.
          */
         function normalizeToArray(obj) {
             if (!obj || typeof obj !== 'object') return [];
-
-            // 1. Get all values from the object 
+            
             const values = Object.values(obj);
-
-            // 2. Filter: Only keep items that are objects AND have a 'message' or 'msg' field.
             return values.filter(item => {
-                // Check if item is a non-null object
                 const isObject = typeof item === 'object' && item !== null;
-                // Check if it has the required message fields
                 const isMessage = isObject && (item.message || item.msg);
                 return isMessage;
             });
         }
 
+        /**
+         * Formats a date string for display in the date separator.
+         * @param {string} dateStr The date string (e.g., "YYYY-MM-DD").
+         */
         function formatDateForDisplay(dateStr) {
             const d = new Date(dateStr);
             if (isNaN(d)) return dateStr;
@@ -232,6 +227,10 @@
             });
         }
 
+        /**
+         * Renders a date separator element in the chat window.
+         * @param {string} dateString The date string for the separator.
+         */
         function renderDateSeparator(dateString) {
             const wrap = document.createElement("div");
             wrap.style.display = "flex";
@@ -245,8 +244,11 @@
             chatWindow.appendChild(wrap);
         }
 
+        /**
+         * Renders a single message bubble.
+         * @param {object} msg The message object.
+         */
         function renderMessage(msg) {
-            // Note: Messages from Mob are typically the mobile sender, so we treat them as 'my-message' for color distinction.
             const isMyMessage = msg.source === "Mob";
             const container = document.createElement("div");
             container.className =
@@ -266,19 +268,22 @@
             container.appendChild(bubble);
             chatWindow.appendChild(container);
         }
-
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-
+        
+        // =========================================================================
+        // CORE DATA LOADING FUNCTION
+        // =========================================================================
+        
         async function loadLatest() {
             console.log("Starting full history data load...");
             chatWindow.innerHTML = "";
             let allMessages = [];
 
+            // We assume Firebase is already initialized by init()
+            const db = firebase.database();
+            
             // --- Querying ALL log entries ---
             const snap = await db.ref("/chat_logs").once("value");
 
-            // Capture the exact moment the data retrieval completes locally
             const syncDate = new Date();
 
             if (!snap.exists()) {
@@ -286,38 +291,26 @@
                 return;
             }
 
-            // Iterate through every single log node
             snap.forEach(childSnapshot => {
                 const nodeData = childSnapshot.val();
-
-                // Step 1: Unwrap 'data' if present (for backward compatibility)
                 const messageBlock = nodeData.data ?? nodeData;
 
                 let messagesFromNode = [];
 
-                // Step 2: Check if the block is a single message object (new format)
                 if (messageBlock && (messageBlock.message || messageBlock.msg)) {
-                    // It's a single message object, so we wrap it in an array.
                     messagesFromNode = [messageBlock];
                 } else {
-                    // The data is a map of messages (old format), use normalizeToArray.
                     messagesFromNode = normalizeToArray(messageBlock);
                 }
 
-                // Add the messages from this node to the master list
                 allMessages = allMessages.concat(messagesFromNode);
             });
 
             console.log(`Total messages found across all logs: ${allMessages.length}`);
 
             if (allMessages.length === 0) {
-                // Custom format creation for timestamp when no messages are found
-                const datePart = syncDate.toLocaleDateString("en-US", {
-                    day: '2-digit', month: 'short', year: 'numeric'
-                });
-                const timePart = syncDate.toLocaleTimeString("en-US", {
-                    hour: '2-digit', minute: '2-digit', hour12: false
-                });
+                const datePart = syncDate.toLocaleDateString("en-US", { day: '2-digit', month: 'short', year: 'numeric' });
+                const timePart = syncDate.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit', hour12: false });
                 const readableTime = `${datePart.replace(',', '')}, ${timePart}`;
 
                 lastSyncEl.textContent = `Last sync: ${readableTime} (No messages parsed)`;
@@ -326,20 +319,17 @@
 
             // --- Rendering Logic ---
 
-            // Sort ALL messages chronologically based on internal date/time fields
+            // Sort ALL messages chronologically
             allMessages.sort((a, b) => {
                 const da = new Date(`${a.date} ${a.time}`);
                 const db = new Date(`${b.date} ${b.time}`);
-                // Fallback for invalid dates
                 if (isNaN(da) || isNaN(db)) return 0;
                 return da - db;
             });
 
             let prevDate = "";
 
-            // Render all messages
             allMessages.forEach(msg => {
-                // Ensure date exists and handle date separators
                 if (msg.date && msg.date !== prevDate) {
                     renderDateSeparator(msg.date);
                     prevDate = msg.date;
@@ -347,29 +337,58 @@
                 renderMessage(msg);
             });
 
-            // Scroll to the latest message
             chatWindow.scrollTop = chatWindow.scrollHeight;
 
             // --- Update sync timestamp ---
-
-            // Custom format creation: "17 Nov 2025, 22:59"
-            const datePart = syncDate.toLocaleDateString("en-US", {
-                day: '2-digit', month: 'short', year: 'numeric'
-            });
-            const timePart = syncDate.toLocaleTimeString("en-US", {
-                hour: '2-digit', minute: '2-digit', hour12: false
-            });
-
+            const datePart = syncDate.toLocaleDateString("en-US", { day: '2-digit', month: 'short', year: 'numeric' });
+            const timePart = syncDate.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit', hour12: false });
             const readableTime = `${datePart.replace(',', '')}, ${timePart}`;
 
-            lastSyncEl.textContent =
-                `Last sync: ${readableTime}`;
+            lastSyncEl.textContent = `Last sync: ${readableTime}`;
+        }
+        
+        // =========================================================================
+        // DYNAMIC CONFIGURATION AND INITIALIZATION
+        // =========================================================================
+
+        async function init() {
+            console.log("Fetching Firebase configuration from firebase-config.json...");
+            let firebaseConfig = null;
+
+            try {
+                // Fetch the config file (MUST be in the same directory)
+                const response = await fetch('firebase-config.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status} - Check the file path and server settings.`);
+                }
+                firebaseConfig = await response.json();
+            } catch (error) {
+                console.error("❌ Could not load Firebase configuration:", error);
+                lastSyncEl.textContent = "Last sync: ERROR loading config (See console)";
+                return; // Stop execution if config fails
+            }
+
+            // Initialize Firebase with the fetched config
+            try {
+                firebase.initializeApp(firebaseConfig);
+                console.log("Firebase initialized successfully.");
+                // Now, load the chat data
+                loadLatest();
+            } catch (e) {
+                console.error("❌ Firebase initialization failed:", e);
+                lastSyncEl.textContent = "Last sync: ERROR initializing Firebase";
+            }
+            
         }
 
-        refreshBtn.addEventListener("click", loadLatest);
-        loadLatest();
-    </script>
 
+        refreshBtn.addEventListener("click", loadLatest);
+        
+        // Start the process by initializing
+        init();
+    </script>
+    
+    <div style="display:none;"><img src="images/chat.png" alt="Favicon Placeholder"></div>
 </body>
 
 </html>
