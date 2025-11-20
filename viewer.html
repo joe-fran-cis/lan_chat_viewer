@@ -12,13 +12,25 @@
 
     <style>
         body {
-            font-family: Segoe UI, Roboto, Arial, sans-serif;
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            padding: 0;
             margin: 0;
-            height: 100vh;
             display: flex;
             flex-direction: column;
-            background: #09121a;
-            color: #e6eef6;
+            height: 100vh;
+            overflow: hidden;
+            box-sizing: border-box;
+            color: #e0e0e0;
+            background-color: #0d1a26;
+            background-image:
+                radial-gradient(circle at center,
+                    #1a2a3a 0%,
+                    #12202f 50%,
+                    #0d1a26 90%,
+                    #0a141f 100%);
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            transform: none;
         }
 
         #header {
