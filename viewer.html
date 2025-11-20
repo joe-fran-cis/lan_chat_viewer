@@ -48,10 +48,33 @@
             min-height: 44px;
         }
 
-        #chat-window {
+        /* #chat-window {
             flex: 1;
             overflow: auto;
             padding: 12px;
+        } */
+
+        /* 🔥🔥🔥 WHATSAPP-STYLE SCROLLBAR CSS 🔥🔥🔥 */
+        #chat-window::-webkit-scrollbar {
+            width: 8px;
+            /* Thickness of the scrollbar */
+            height: 8px;
+        }
+
+        #chat-window::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 10px;
+        }
+
+        #chat-window::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+
+        #chat-window::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(255, 255, 255, 0.4);
         }
 
         .message-container {
